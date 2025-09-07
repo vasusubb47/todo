@@ -16,7 +16,7 @@ A simple terminal-based todo application built with Rust and Ratatui.
 
 2. Clone the repository and navigate to the project folder:
    ```
-   git clone <your-repo-url>
+   git clone https://github.com/vasusubb47/todo
    cd todo
    ```
 
