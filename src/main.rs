@@ -155,18 +155,7 @@ fn draw(frame: &mut Frame, app_state: &mut AppState) {
     
     match app_state.mode {
         AppMode::Normal => {
-            let items: Vec<String> = app_state
-                                .todos
-                                .items
-                                .iter()
-                                .map(|item| {
-                                    if item.completed {
-                                        format!("{} ✔", item.title)
-                                    } else {
-                                        format!("{} ✘", item.title)
-                                    }
-                                })
-                                .collect();
+            let items: Vec<String> = app_state.todos.get_list_to_display();
             
             let toto_list = List::new(items)
                     .block(
@@ -179,33 +168,15 @@ fn draw(frame: &mut Frame, app_state: &mut AppState) {
 
             StatefulWidget::render(toto_list, todo_list_area, frame.buffer_mut(), &mut app_state.todos.state);
             
-            if let Some(selected) = app_state.todos.state.selected() {
-                frame.render_widget(
-                Paragraph::new(format!("title: {}, id: {} \n description: \n {} \n completed: \n {} \n status: \n {} ", 
-                        app_state.todos.items[selected].title.clone(),
-                        app_state.todos.items[selected].id.to_string(),
-                        app_state.todos.items[selected].description.clone(),
-                        app_state.todos.items[selected].completed.to_string(),
-                        app_state.todos.items[selected].status.to_str().to_string()
-                    ))
-                        .block(
-                            Block::bordered()
-                                .title("Read".to_span().into_centered_line())
-                                .border_type(BorderType::Rounded)
-                        ),
-                    read_area
-                );
-            } else {
-                frame.render_widget(
-                    Paragraph::new("No item selected")
-                        .block(
-                            Block::bordered()
-                                .title("Read".to_span().into_centered_line())
-                                .border_type(BorderType::Rounded)
-                        ),
-                    read_area
-                );
-            }
+            frame.render_widget(
+            Paragraph::new(app_state.todos.get_selected_item_display())
+                    .block(
+                        Block::bordered()
+                            .title("Read".to_span().into_centered_line())
+                            .border_type(BorderType::Rounded)
+                    ),
+                read_area
+            );
         },
         AppMode::Editing => {},
         AppMode::Adding => {},

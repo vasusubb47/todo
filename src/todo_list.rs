@@ -51,4 +51,29 @@ impl TodoList {
             }
         }
     }
+
+    pub fn get_list_to_display(&self) -> Vec<String> {
+        self.items.iter().map(|item| {
+            let status = if item.completed { "[✓]" } else { "[✗]" };
+            format!("{} {} - {}", status, item.title, item.status.to_str())
+        }).collect()
+    }
+
+    pub fn get_selected_item_display(&self) -> String {
+        let selected = match self.state.selected() {
+            Some(idx) => idx,
+            None => return "No item selected".to_string(),
+        };
+        if let Some(item) = self.items.get(selected) {
+            format!("title: {}, id: {} \n description: \n {} \n completed: \n {} \n status: \n {} ", 
+                item.title.clone(),
+                item.id.to_string(),
+                item.description.clone(),
+                item.completed.to_string(),
+                item.status.to_str().to_string()
+            )
+        } else {
+            "No item selected".to_string()
+        }
+    }
 }
