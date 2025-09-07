@@ -1,42 +1,18 @@
 use color_eyre::Result;
 use ratatui::{
-    crossterm::event::{self, Event, KeyCode}, layout::{Constraint, Layout}, style::{Color, Style}, text::ToSpan, widgets::{Block, BorderType, List, ListState, Paragraph, StatefulWidget, Widget}, DefaultTerminal, Frame
+    crossterm::event::{self, Event, KeyCode}, layout::{Constraint, Layout}, style::{Color, Style}, text::ToSpan, widgets::{Block, BorderType, List, Paragraph, StatefulWidget, Widget}, DefaultTerminal, Frame
 };
-use std::fs;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+
+mod todo;
+mod todo_list;
+
+use crate::todo_list::{TodoList};
 
 #[derive(Debug)]
 enum AppMode {
     Normal = 0,
     Editing,
     Adding,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-enum TodoStatus {
-    Completed,
-    InProgress,
-    Pending,
-}
-
-impl TodoStatus{
-    fn to_str(&self) -> &str {
-        match self {
-            TodoStatus::Completed => "Completed",
-            TodoStatus::InProgress => "InProgress",
-            TodoStatus::Pending => "Pending",
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct TodoItem {
-    id: Uuid,
-    title: String,
-    description: String,
-    completed: bool,
-    status: TodoStatus,
 }
 
 #[derive(Debug)]
@@ -54,58 +30,11 @@ impl Default for AppState {
     }
 }
 
-#[derive(Debug, Default)]
-struct TodoList {
-    items: Vec<TodoItem>,
-    state: ListState,
-}
-
-impl TodoList {
-    fn read_todos(&mut self) {
-        let path = ".\\data\\data.json";
-        let data = fs::read_to_string(path).expect("Unable to read file");
-        let todos: Vec<TodoItem> = serde_json::from_str(&data).expect("JSON was not well-formatted");
-        
-        self.items = todos;
-        self.state = ListState::default();
-    }
-
-    fn save_todos(&self) {
-        let path = ".\\data\\data.json";
-        let data = serde_json::to_string(&self.items).expect("Unable to serialize data");
-        fs::write(path, data).expect("Unable to write file");
-    }
-
-    fn remove_selected(&mut self) {
-        if let Some(selected) = self.state.selected() {
-            self.items.remove(selected);
-            let new_len = self.items.len();
-            if new_len == 0 {
-                self.state.select(None);
-            } else if selected >= new_len {
-                self.state.select(Some(new_len - 1));
-            } else {
-                self.state.select(Some(selected));
-            }
-        }
-    }
-
-    fn mark_completed(&mut self) {
-        if let Some(selected) = self.state.selected() {
-            if let Some(item) = self.items.get_mut(selected) {
-                item.completed = !item.completed;
-            }
-        }
-    }
-}
-
-
 fn main() -> Result<()> {
     color_eyre::install()?;
 
     let terminal = ratatui::init();
     let mut app_state = AppState::default();
-    // app_state.todos.test_todos();
     app_state.todos.read_todos();
 
     let result = run_app(terminal, &mut app_state);
@@ -116,7 +45,6 @@ fn main() -> Result<()> {
 fn run_app(mut terminal: DefaultTerminal, mut app_state: &mut AppState) -> Result<()> {
     loop {
         terminal.draw(|frame| draw(frame, &mut app_state))?;
-
 
         if let Event::Key(key) = event::read()? {
             match key.kind {
@@ -224,55 +152,70 @@ fn draw(frame: &mut Frame, app_state: &mut AppState) {
         .style(Style::new().bg(Color::Magenta))
         .render(main_layout, frame.buffer_mut());
 
-
-    let items: Vec<String> = app_state
-                        .todos
-                        .items
-                        .iter()
-                        .map(|item| {
-                            if item.completed {
-                                format!("{} ✔", item.title)
-                            } else {
-                                format!("{} ✘", item.title)
-                            }
-                        })
-                        .collect();
     
-    let toto_list = List::new(items)
-            .block(
-                Block::bordered()
-                    .title("List".to_span().into_centered_line())
-                    .border_type(BorderType::Rounded)
-            )
-            .highlight_symbol(">");
+    match app_state.mode {
+        AppMode::Normal => {
+            let items: Vec<String> = app_state
+                                .todos
+                                .items
+                                .iter()
+                                .map(|item| {
+                                    if item.completed {
+                                        format!("{} ✔", item.title)
+                                    } else {
+                                        format!("{} ✘", item.title)
+                                    }
+                                })
+                                .collect();
+            
+            let toto_list = List::new(items)
+                    .block(
+                        Block::bordered()
+                            .title("List".to_span().into_centered_line())
+                            .border_type(BorderType::Rounded)
+                    )
+                    .highlight_symbol(">")
+                    .highlight_style(Style::new().bg(Color::Blue));
 
-    StatefulWidget::render(toto_list, todo_list_area, frame.buffer_mut(), &mut app_state.todos.state);
-
-    frame.render_widget(
-        Paragraph::new(format!("title: {}, id: {} \n description: \n {} \n completed: \n {} \n status: \n {} ", 
-            app_state.todos.state.selected().map_or("None".to_string(), |i| app_state.todos.items[i].title.clone()),
-            app_state.todos.state.selected().map_or("None".to_string(), |i| app_state.todos.items[i].id.to_string()),
-            app_state.todos.state.selected().map_or("None".to_string(), |i| app_state.todos.items[i].description.clone()),
-            app_state.todos.state.selected().map_or("None".to_string(), |i| app_state.todos.items[i].completed.to_string()),
-            app_state.todos.state.selected().map_or("None".to_string(), |i| app_state.todos.items[i].status.to_str().to_string())
-        ))
-            .block(
-                Block::bordered()
-                    .title("Read".to_span().into_centered_line())
-                    .border_type(BorderType::Rounded)
-            ),
-         read_area
-    );
+            StatefulWidget::render(toto_list, todo_list_area, frame.buffer_mut(), &mut app_state.todos.state);
+            
+            if let Some(selected) = app_state.todos.state.selected() {
+                frame.render_widget(
+                Paragraph::new(format!("title: {}, id: {} \n description: \n {} \n completed: \n {} \n status: \n {} ", 
+                        app_state.todos.items[selected].title.clone(),
+                        app_state.todos.items[selected].id.to_string(),
+                        app_state.todos.items[selected].description.clone(),
+                        app_state.todos.items[selected].completed.to_string(),
+                        app_state.todos.items[selected].status.to_str().to_string()
+                    ))
+                        .block(
+                            Block::bordered()
+                                .title("Read".to_span().into_centered_line())
+                                .border_type(BorderType::Rounded)
+                        ),
+                    read_area
+                );
+            } else {
+                frame.render_widget(
+                    Paragraph::new("No item selected")
+                        .block(
+                            Block::bordered()
+                                .title("Read".to_span().into_centered_line())
+                                .border_type(BorderType::Rounded)
+                        ),
+                    read_area
+                );
+            }
+        },
+        AppMode::Editing => {},
+        AppMode::Adding => {},
+    }
 
     match app_state.mode {
         AppMode::Normal => {
             frame.render_widget(
                 // q -> quit
-                // h -> deselect
-                // j -> select previous
-                // k -> select next
-                // l -> select first
-                // L -> select last
+                // h -> deselect | j -> select previous | k -> select next | l -> select first |
                 // a -> add item
                 Paragraph::new("q -> quit | h -> deselect | j -> select previous | k -> select next | l -> select first | L -> select last | a -> add item")
                     .block(
@@ -309,6 +252,5 @@ fn draw(frame: &mut Frame, app_state: &mut AppState) {
             );
             return;
         },
-        
     }
 }
