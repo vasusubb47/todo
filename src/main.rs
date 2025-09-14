@@ -1,12 +1,14 @@
 use color_eyre::Result;
 use ratatui::{
-    crossterm::event::{self, Event, KeyCode}, layout::{Constraint, Layout}, style::{Color, Style}, text::ToSpan, widgets::{Block, BorderType, List, Paragraph, StatefulWidget, Widget}, DefaultTerminal, Frame
+    crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers}, layout::{Constraint, Layout}, style::{Color, Style}, text::ToSpan, widgets::{Block, BorderType, List, Paragraph, StatefulWidget, Widget}, DefaultTerminal, Frame
 };
 
+mod form;
 mod todo;
+mod todo_form;
 mod todo_list;
 
-use crate::todo_list::{TodoList};
+use crate::{todo_form::TodoForm, todo_list::TodoList};
 
 #[derive(Debug)]
 enum AppMode {
@@ -18,7 +20,8 @@ enum AppMode {
 #[derive(Debug)]
 struct AppState {
     todos: TodoList,
-    mode: AppMode
+    form: TodoForm,
+    mode: AppMode,
 }
 
 impl Default for AppState {
@@ -26,6 +29,7 @@ impl Default for AppState {
         Self {
             todos: TodoList::default(),
             mode: AppMode::Normal,
+            form: TodoForm::default(),
         }
     }
 }
@@ -48,23 +52,21 @@ fn run_app(mut terminal: DefaultTerminal, mut app_state: &mut AppState) -> Resul
 
         if let Event::Key(key) = event::read()? {
             match key.kind {
-                event::KeyEventKind::Press => {
-                    match app_state.mode {
-                        AppMode::Normal => {
-                            if handle_normal_mode_input(key.code, &mut app_state) {
-                                break;
-                            }
-                        },
-                        AppMode::Editing => {
-                            if handle_editing_mode_input(key.code, &mut app_state) {
-                                break;
-                            }
-                        },
-                        AppMode::Adding => {
-                            if handle_adding_mode_input(key.code, &mut app_state) {
-                                break;
-                            }
-                        },
+                event::KeyEventKind::Press => match app_state.mode {
+                    AppMode::Normal => {
+                        if handle_normal_mode_input(key.code, key, &mut app_state) {
+                            break;
+                        }
+                    }
+                    AppMode::Editing => {
+                        if handle_editing_mode_input(key.code, &mut app_state) {
+                            break;
+                        }
+                    }
+                    AppMode::Adding => {
+                        if handle_adding_mode_input(key.code, &mut app_state) {
+                            break;
+                        }
                     }
                 },
                 _ => {}
@@ -75,13 +77,32 @@ fn run_app(mut terminal: DefaultTerminal, mut app_state: &mut AppState) -> Resul
     Ok(())
 }
 
-fn handle_normal_mode_input(key: KeyCode, app_state: &mut AppState) -> bool {
-    match key {
-        KeyCode::Char('q') => {
-            // Quit the application
-            app_state.todos.save_todos();
-            return true;
+fn handle_normal_mode_input(key: KeyCode, key_event: KeyEvent, app_state: &mut AppState) -> bool {
+
+    if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+        match key {
+            KeyCode::Char('c') => {
+                // Quit the application
+                app_state.todos.save_todos();
+                return true;
+            }
+            KeyCode::Char('a') => {
+                app_state.mode = AppMode::Adding;
+                // app_state.form = TodoForm::default();
+            }
+            KeyCode::Char('e') => {
+                app_state.mode = AppMode::Editing;
+            }
+            _ => {}
         }
+    }
+
+    match key {
+        // KeyCode::Char('q') => {
+        //     // Quit the application
+        //     app_state.todos.save_todos();
+        //     return true;
+        // }
         KeyCode::Char('h') => {
             app_state.todos.state.select(None);
         }
@@ -103,12 +124,13 @@ fn handle_normal_mode_input(key: KeyCode, app_state: &mut AppState) -> bool {
         KeyCode::Char('R') => {
             app_state.todos.remove_selected();
         }
-        KeyCode::Char('a') => {
-            app_state.mode = AppMode::Adding;
-        }
-        KeyCode::Char('e') => {
-            app_state.mode = AppMode::Editing;
-        }
+        // KeyCode::Char('a') => {
+        //     app_state.mode = AppMode::Adding;
+        //     // app_state.form.new();
+        // }
+        // KeyCode::Char('e') => {
+        //     app_state.mode = AppMode::Editing;
+        // }
         _ => {}
     }
     false
@@ -119,7 +141,9 @@ fn handle_adding_mode_input(key: KeyCode, app_state: &mut AppState) -> bool {
         KeyCode::Esc => {
             app_state.mode = AppMode::Normal;
         }
-        _ => {}
+        _ => {
+            app_state.form.on_key_press(key);
+        }
     }
     false
 }
@@ -143,43 +167,51 @@ fn draw(frame: &mut Frame, app_state: &mut AppState) {
         .margin(1)
         .areas(main_layout);
 
-    let [todo_list_area, read_area] = Layout::horizontal([Constraint::Percentage(20), Constraint::Percentage(80)])
-        .margin(1)
-        .areas(list_box);
+    let [todo_list_area, todo_area] =
+        Layout::horizontal([Constraint::Percentage(20), Constraint::Percentage(80)])
+            .margin(1)
+            .areas(list_box);
+
+    // let todo_form_layout: [Rect; 4] = Layout::vertical([Constraint::Length(3), Constraint::Length(3), Constraint::Length(3), Constraint::Fill(1)])
+    //     .margin(1)
+    //     .areas(list_box);
 
     Block::bordered()
         .border_type(BorderType::Rounded)
         .style(Style::new().bg(Color::Magenta))
         .render(main_layout, frame.buffer_mut());
 
-    
     match app_state.mode {
         AppMode::Normal => {
             let items: Vec<String> = app_state.todos.get_list_to_display();
-            
-            let toto_list = List::new(items)
-                    .block(
-                        Block::bordered()
-                            .title("List".to_span().into_centered_line())
-                            .border_type(BorderType::Rounded)
-                    )
-                    .highlight_symbol(">")
-                    .highlight_style(Style::new().bg(Color::Blue));
 
-            StatefulWidget::render(toto_list, todo_list_area, frame.buffer_mut(), &mut app_state.todos.state);
-            
-            frame.render_widget(
-            Paragraph::new(app_state.todos.get_selected_item_display())
-                    .block(
-                        Block::bordered()
-                            .title("Read".to_span().into_centered_line())
-                            .border_type(BorderType::Rounded)
-                    ),
-                read_area
+            let toto_list = List::new(items)
+                .block(
+                    Block::bordered()
+                        .title("List".to_span().into_centered_line())
+                        .border_type(BorderType::Rounded),
+                )
+                .highlight_symbol(">")
+                .highlight_style(Style::new().bg(Color::Blue));
+
+            StatefulWidget::render(
+                toto_list,
+                todo_list_area,
+                frame.buffer_mut(),
+                &mut app_state.todos.state,
             );
-        },
-        AppMode::Editing => {},
-        AppMode::Adding => {},
+
+            frame.render_widget(
+                Paragraph::new(app_state.todos.get_selected_item_display()).block(
+                    Block::bordered()
+                        .title("Read".to_span().into_centered_line())
+                        .border_type(BorderType::Rounded),
+                ),
+                todo_area,
+            );
+        }
+        AppMode::Editing => {}
+        AppMode::Adding => {}
     }
 
     match app_state.mode {
@@ -196,32 +228,52 @@ fn draw(frame: &mut Frame, app_state: &mut AppState) {
                     ),
                 tips
             );
-        },
+        }
         AppMode::Editing => {
             frame.render_widget(
-                Paragraph::new("Editing mode not implemented yet.")
-                    .block(
-                        Block::bordered()
-                            .title("Editing".to_span().into_centered_line())
-                            .style(Style::new().bg(Color::Red))
-                            .border_type(BorderType::Rounded)
-                    ),
-                tips
+                Paragraph::new("Editing mode not implemented yet.").block(
+                    Block::bordered()
+                        .title("Editing".to_span().into_centered_line())
+                        .style(Style::new().bg(Color::Red))
+                        .border_type(BorderType::Rounded),
+                ),
+                tips,
             );
             return;
-        },
+        }
         AppMode::Adding => {
+            let color = if app_state.form.form_status.is_editing() {
+                Color::Magenta
+            } else {
+                Color::Red
+            };
+
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .title(
+                    "Adding mode not fully implemented yet"
+                        .to_span()
+                        .into_centered_line(),
+                )
+                .style(Style::new().bg(color))
+                .render(list_box, frame.buffer_mut());
+
+            app_state.form.render(list_box, frame);
+
             frame.render_widget(
-                Paragraph::new("Adding mode not implemented yet.")
-                    .block(
-                        Block::bordered()
-                            .title("Adding".to_span().into_centered_line())
-                            .style(Style::new().bg(Color::Red))
-                            .border_type(BorderType::Rounded)
-                    ),
-                tips
+                Paragraph::new(app_state.form.form_status.to_str()).block(
+                    Block::bordered()
+                        .title(
+                            "Adding mode not fully implemented yet"
+                                .to_span()
+                                .into_centered_line(),
+                        )
+                        .style(Style::new().bg(Color::Red))
+                        .border_type(BorderType::Rounded),
+                ),
+                tips,
             );
             return;
-        },
+        }
     }
 }
