@@ -50,6 +50,27 @@ fn run_app(mut terminal: DefaultTerminal, mut app_state: &mut AppState) -> Resul
     loop {
         terminal.draw(|frame| draw(frame, &mut app_state))?;
 
+        // if app_state.form.form_status == form::form_status::FormStatus::Submitting {
+        //     let title = app_state.form.title.value.clone();
+        //     if title.is_empty() {
+        //         app_state.form.form_status = form::form_status::FormStatus::Editing;
+        //     } else {
+        //         let description = app_state.form.description.value.clone();
+        //         let status = app_state.form.status.value.clone();
+        //         let id = app_state.form.id.value.clone();
+        //         app_state.todos.items.push(todo::TodoItem {
+        //             id,
+        //             title,
+        //             description,
+        //             status: todo::TodoStatus::from_str(&status),
+        //             completed: false,
+        //         });
+        //         app_state.todos.save_todos();
+        //         app_state.form.reset();
+        //         app_state.mode = AppMode::Normal;
+        //     }
+        // }
+
         if let Event::Key(key) = event::read()? {
             match key.kind {
                 event::KeyEventKind::Press => match app_state.mode {
@@ -59,12 +80,12 @@ fn run_app(mut terminal: DefaultTerminal, mut app_state: &mut AppState) -> Resul
                         }
                     }
                     AppMode::Editing => {
-                        if handle_editing_mode_input(key.code, &mut app_state) {
+                        if handle_editing_mode_input(key.code, key, &mut app_state) {
                             break;
                         }
                     }
                     AppMode::Adding => {
-                        if handle_adding_mode_input(key.code, &mut app_state) {
+                        if handle_adding_mode_input(key.code, key, &mut app_state) {
                             break;
                         }
                     }
@@ -88,7 +109,6 @@ fn handle_normal_mode_input(key: KeyCode, key_event: KeyEvent, app_state: &mut A
             }
             KeyCode::Char('a') => {
                 app_state.mode = AppMode::Adding;
-                // app_state.form = TodoForm::default();
             }
             KeyCode::Char('e') => {
                 app_state.mode = AppMode::Editing;
@@ -98,11 +118,6 @@ fn handle_normal_mode_input(key: KeyCode, key_event: KeyEvent, app_state: &mut A
     }
 
     match key {
-        // KeyCode::Char('q') => {
-        //     // Quit the application
-        //     app_state.todos.save_todos();
-        //     return true;
-        // }
         KeyCode::Char('h') => {
             app_state.todos.state.select(None);
         }
@@ -124,31 +139,24 @@ fn handle_normal_mode_input(key: KeyCode, key_event: KeyEvent, app_state: &mut A
         KeyCode::Char('R') => {
             app_state.todos.remove_selected();
         }
-        // KeyCode::Char('a') => {
-        //     app_state.mode = AppMode::Adding;
-        //     // app_state.form.new();
-        // }
-        // KeyCode::Char('e') => {
-        //     app_state.mode = AppMode::Editing;
-        // }
         _ => {}
     }
     false
 }
 
-fn handle_adding_mode_input(key: KeyCode, app_state: &mut AppState) -> bool {
+fn handle_adding_mode_input(key: KeyCode, key_event: KeyEvent, app_state: &mut AppState) -> bool {
     match key {
         KeyCode::Esc => {
             app_state.mode = AppMode::Normal;
         }
         _ => {
-            app_state.form.on_key_press(key);
+            app_state.form.on_key_press(key, key_event);
         }
     }
     false
 }
 
-fn handle_editing_mode_input(key: KeyCode, app_state: &mut AppState) -> bool {
+fn handle_editing_mode_input(key: KeyCode, _key_event: KeyEvent, app_state: &mut AppState) -> bool {
     match key {
         KeyCode::Esc => {
             app_state.mode = AppMode::Normal;
@@ -171,10 +179,6 @@ fn draw(frame: &mut Frame, app_state: &mut AppState) {
         Layout::horizontal([Constraint::Percentage(20), Constraint::Percentage(80)])
             .margin(1)
             .areas(list_box);
-
-    // let todo_form_layout: [Rect; 4] = Layout::vertical([Constraint::Length(3), Constraint::Length(3), Constraint::Length(3), Constraint::Fill(1)])
-    //     .margin(1)
-    //     .areas(list_box);
 
     Block::bordered()
         .border_type(BorderType::Rounded)

@@ -1,7 +1,7 @@
 use std::fs;
 use ratatui::widgets::ListState;
 
-use crate::todo::{TodoItem};
+use crate::{form::form_inputs::enum_field::EnumDisplay, todo::TodoItem};
 
 #[derive(Debug, Default)]
 pub struct TodoList {

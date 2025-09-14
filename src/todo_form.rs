@@ -1,9 +1,9 @@
 
-use ratatui::{crossterm::event::KeyCode, layout::{Constraint, Layout, Rect}, Frame};
+use ratatui::{crossterm::event::{KeyCode, KeyEvent}, layout::{Constraint, Layout, Offset, Rect}, Frame};
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::form::{form_inputs::StringField, form_status::FormStatus};
+use crate::{form::{form_inputs::{enum_field::EnumField, string_field::StringField, FormInputWidget}, form_status::FormStatus}, todo::TodoStatus};
 
 
 #[derive(Serialize, Default, PartialEq, Eq, Debug)]
@@ -18,11 +18,12 @@ pub enum TodoFormState {
 #[derive(Serialize, Debug)]
 pub struct TodoForm {
     pub form_status: FormStatus,
-    pub state: TodoFormState,
+    pub form_render_state: TodoFormState,
     pub id: StringField,
     pub title: StringField,
     pub description: StringField,
-    pub status: StringField,
+    #[serde(skip)]
+    pub status: EnumField<TodoStatus>,
 }
 
 
@@ -30,24 +31,24 @@ impl Default for TodoForm {
     fn default() -> Self {
         Self {
             form_status: FormStatus::default(),
-            state: TodoFormState::default(),
-            id: StringField::new("ID").set_value(Uuid::new_v4().to_string()),
+            form_render_state: TodoFormState::default(),
+            id: StringField::new("ID").set_default_value(Uuid::new_v4().to_string()),
             title: StringField::new("Title"),
             description: StringField::new("Description"),
-            status: StringField::new("Status"),
+            status: EnumField::new("Status", &[TodoStatus::Pending, TodoStatus::InProgress, TodoStatus::Completed]),
         }
     }
 }
 
 impl TodoForm {
 
-    pub fn new(&mut self) -> Self {
+    pub fn reset(&mut self) {
         self.clear();
-        Self::default()
+        self.id.set_value(Uuid::new_v4().to_string());
     }
 
-    pub fn on_key_press(&mut self, key: KeyCode) {
-        let key = self.form_status.handle_key_press(key);
+    pub fn on_key_press(&mut self, key: KeyCode, key_event: KeyEvent) {
+        let key = self.form_status.handle_key_press(key, key_event);
         if key.is_none() {
             return;
         }
@@ -82,17 +83,17 @@ impl TodoForm {
         frame.render_widget(&self.description, des_area);
         frame.render_widget(&self.status, status_area);
 
-        let cursor_position = match self.state {
+        let cursor_position = match self.form_render_state {
             TodoFormState::Id => id_area.offset(self.id.cursor_offset()),
             TodoFormState::Title => title_area.offset(self.title.cursor_offset()),
             TodoFormState::Description => des_area.offset(self.description.cursor_offset()),
-            TodoFormState::Status => status_area.offset(self.status.cursor_offset()),
+            TodoFormState::Status => status_area.offset(Offset { x: 0, y: 0 }),
         };
         frame.set_cursor_position(cursor_position);
     }
 
-    fn current_field_mut(&mut self) -> &mut StringField {
-        match self.state {
+    fn current_field_mut(&mut self) -> &mut dyn FormInputWidget {
+        match self.form_render_state {
             TodoFormState::Id => &mut self.id,
             TodoFormState::Title => &mut self.title,
             TodoFormState::Description => &mut self.description,
@@ -100,8 +101,8 @@ impl TodoForm {
         }
     }
 
-    fn _current_field(&self) -> &StringField {
-        match self.state {
+    fn _current_field(&self) ->  &dyn FormInputWidget {
+        match self.form_render_state {
             TodoFormState::Id => &self.id,
             TodoFormState::Title => &self.title,
             TodoFormState::Description => &self.description,
@@ -110,7 +111,7 @@ impl TodoForm {
     }
 
     pub fn next_field(&mut self) {
-        self.state = match self.state {
+        self.form_render_state = match self.form_render_state {
             TodoFormState::Id => TodoFormState::Title,
             TodoFormState::Title => TodoFormState::Description,
             TodoFormState::Description => TodoFormState::Status,
@@ -119,7 +120,7 @@ impl TodoForm {
     }
 
     pub fn previous_field(&mut self) {
-        self.state = match self.state {
+        self.form_render_state = match self.form_render_state {
             TodoFormState::Id => TodoFormState::Status,
             TodoFormState::Title => TodoFormState::Id,
             TodoFormState::Description => TodoFormState::Title,
@@ -131,10 +132,10 @@ impl TodoForm {
         self.id.clear();
         self.title.clear();
         self.description.clear();
-        self.status.clear();
+        // self.status.clear();
     }
 
     pub fn _is_complete(&self) -> bool {
-        !self.title.is_empty() && !self.description.is_empty() && !self.status.is_empty()
+        !self.title.is_empty() && !self.description.is_empty()
     }
 }

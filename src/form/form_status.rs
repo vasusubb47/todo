@@ -1,5 +1,5 @@
 
-use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde::Serialize;
 
 
@@ -8,28 +8,23 @@ pub enum FormStatus {
     #[default]
     Viewing,
     Editing,
+    Submitting,
     // Creating,
 }
 
 impl FormStatus {
 
-    // pub fn handle_key_press<F>(&mut self, key_event: KeyEvent, mut next: F)
-    // where F: FnMut(KeyEvent), {
-    //     if let event::KeyEventKind::Press = key_event.kind {
-    //         match self {
-    //             FormStatus::Viewing => todo!(),
-    //             FormStatus::Editing => {
-    //                 if key_event.code == KeyCode::Esc {
-    //                     *self = FormStatus::Viewing;
-    //                     return;
-    //                 }
-    //                 next(key_event);
-    //             },
-    //         }
-    //     }
-    // }
-
-    pub fn handle_key_press(&mut self, key: KeyCode) -> Option<KeyCode> {
+    pub fn handle_key_press(&mut self, key: KeyCode, key_event: KeyEvent) -> Option<KeyCode> {
+        if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+            match key {
+                KeyCode::Char('s') => {
+                    *self = FormStatus::Submitting;
+                    return None;
+                }
+                _ => {}
+            }
+            return None;
+        }
         match self {
             FormStatus::Viewing => {
                 match key {
@@ -49,6 +44,9 @@ impl FormStatus {
                     _ => {return Some(key);}
                 }
             },
+            FormStatus::Submitting => {
+                return None;
+            },
         }
     }
 
@@ -56,6 +54,7 @@ impl FormStatus {
         match self {
             FormStatus::Viewing => "Viewing",
             FormStatus::Editing => "Editing",
+            FormStatus::Submitting => "Submitting",
         }
     }
 
