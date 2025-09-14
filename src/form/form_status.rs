@@ -50,6 +50,10 @@ impl FormStatus {
         }
     }
 
+    pub fn reset(&mut self) {
+        *self = FormStatus::Viewing;
+    }
+
     pub fn to_str(&self) -> &str {
         match self {
             FormStatus::Viewing => "Viewing",
@@ -64,5 +68,9 @@ impl FormStatus {
 
     pub fn is_editing(&self) -> bool {
         matches!(self, FormStatus::Editing)
+    }
+
+    pub fn is_submitting(&self) -> bool {
+        matches!(self, FormStatus::Submitting)
     }
 }

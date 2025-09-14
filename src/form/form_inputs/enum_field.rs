@@ -50,7 +50,7 @@ where
         }
     }
 
-    pub fn value(&self) -> T {
+    pub fn get_value(&self) -> T {
         self.options[self.selected_index]
     }
 
@@ -76,7 +76,7 @@ where
         let label = Line::from_iter([self.label, ": "]);
         label.render(label_area, buf);
 
-        let value_str = self.value();
+        let value_str = self.get_value();
         Line::from(value_str.to_str()).render(value_area, buf);
     }
 }

@@ -47,6 +47,10 @@ impl StringField {
         self.value = value;
     }
 
+    pub fn get_value(&self) -> &str {
+        &self.value
+    }
+
     pub fn cursor_offset(&self) -> Offset {
         let x = (self.label.len() + self.value.len() + 2) as i32;
         Offset { x, y: 0 }

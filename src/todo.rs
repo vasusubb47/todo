@@ -29,3 +29,16 @@ pub struct TodoItem {
     pub completed: bool,
     pub status: TodoStatus,
 }
+
+impl TodoItem {
+    pub fn new_todo_item(title: String, description: String, status: TodoStatus) -> TodoItem {
+        TodoItem {
+            id: Uuid::new_v4(),
+            title,
+            description,
+            completed: false,
+            status,
+        }
+    }
+}
+

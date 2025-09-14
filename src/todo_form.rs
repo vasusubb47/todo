@@ -3,7 +3,7 @@ use ratatui::{crossterm::event::{KeyCode, KeyEvent}, layout::{Constraint, Layout
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::{form::{form_inputs::{enum_field::EnumField, string_field::StringField, FormInputWidget}, form_status::FormStatus}, todo::TodoStatus};
+use crate::{form::{form_inputs::{enum_field::EnumField, string_field::StringField, FormInputWidget}, form_status::FormStatus}, todo::{TodoItem, TodoStatus}};
 
 
 #[derive(Serialize, Default, PartialEq, Eq, Debug)]
@@ -44,6 +44,8 @@ impl TodoForm {
 
     pub fn reset(&mut self) {
         self.clear();
+        self.form_status.reset();
+        self.form_render_state = TodoFormState::default();
         self.id.set_value(Uuid::new_v4().to_string());
     }
 
@@ -90,6 +92,22 @@ impl TodoForm {
             TodoFormState::Status => status_area.offset(Offset { x: 0, y: 0 }),
         };
         frame.set_cursor_position(cursor_position);
+    }
+
+    pub fn get_submitted_todo(&self) -> Option<TodoItem> {
+        if !self.form_status.is_submitting() {
+            return None;
+        }
+
+        if self.title.is_empty() || self.description.is_empty() {
+            return None;
+        }
+
+        Some(TodoItem::new_todo_item(
+            self.title.get_value().to_string(), 
+            self.description.get_value().to_string(), 
+            self.status.get_value())
+        )
     }
 
     fn current_field_mut(&mut self) -> &mut dyn FormInputWidget {

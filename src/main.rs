@@ -50,26 +50,14 @@ fn run_app(mut terminal: DefaultTerminal, mut app_state: &mut AppState) -> Resul
     loop {
         terminal.draw(|frame| draw(frame, &mut app_state))?;
 
-        // if app_state.form.form_status == form::form_status::FormStatus::Submitting {
-        //     let title = app_state.form.title.value.clone();
-        //     if title.is_empty() {
-        //         app_state.form.form_status = form::form_status::FormStatus::Editing;
-        //     } else {
-        //         let description = app_state.form.description.value.clone();
-        //         let status = app_state.form.status.value.clone();
-        //         let id = app_state.form.id.value.clone();
-        //         app_state.todos.items.push(todo::TodoItem {
-        //             id,
-        //             title,
-        //             description,
-        //             status: todo::TodoStatus::from_str(&status),
-        //             completed: false,
-        //         });
-        //         app_state.todos.save_todos();
-        //         app_state.form.reset();
-        //         app_state.mode = AppMode::Normal;
-        //     }
-        // }
+        if app_state.form.form_status.is_submitting() {
+            if let Some(new_todo) = app_state.form.get_submitted_todo() {
+                app_state.todos.items.push(new_todo);
+                app_state.todos.save_todos();
+                app_state.form.reset();
+                app_state.mode = AppMode::Normal;
+            }
+        }
 
         if let Event::Key(key) = event::read()? {
             match key.kind {
